@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(node -e ' *)",
+      "Bash(ipconfig)",
+      "Bash(convert --version)",
+      "Bash(ffmpeg -version)",
+      "Bash(node -e \"require\\('sharp'\\)\")",
+      "Bash(ffmpeg -i \"F:/miniprogram-1/miniprogram/品牌logo.png\" -vf scale=\"iw*0.5:ih*0.5\" -compression_level 9 \"F:/miniprogram-1/miniprogram/品牌logo_tmp.png\" -y)",
+      "Bash(Remove-Item \"D:\\\\documents\\\\LLM-ACTION\\\\submit\\\\miniprogram-1\\\\miniprogram\\\\品牌logo.png\" -Force)",
+      "Bash(Remove-Item \"D:\\\\documents\\\\LLM-ACTION\\\\submit\\\\miniprogram-1\\\\miniprogram\\\\原味青豌豆.jpg\" -Force)",
+      "Bash(Remove-Item \"D:\\\\documents\\\\LLM-ACTION\\\\submit\\\\miniprogram-1\\\\miniprogram\\\\蒜香味青豌豆.jpg\" -Force)",
+      "Bash(Remove-Item \"D:\\\\documents\\\\LLM-ACTION\\\\submit\\\\miniprogram-1\\\\miniprogram\\\\铜锣烧.jpg\" -Force)",
+      "Bash(Remove-Item \"D:\\\\documents\\\\LLM-ACTION\\\\submit\\\\miniprogram-1\\\\品牌logo.png\" -Force)"
+    ]
+  }
+}

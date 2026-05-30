@@ -1,0 +1,10 @@
+{
+  "name": "snack-checkout-miniprogram",
+  "version": "1.0.0",
+  "description": "散装零食自助结算小程序",
+  "scripts": {},
+  "dependencies": {},
+  "devDependencies": {
+    "miniprogram-api-typings": "^2.8.3-1"
+  }
+}

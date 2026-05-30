@@ -1,0 +1,9 @@
+{
+  "name": "machineWeigh",
+  "version": "1.0.0",
+  "description": "机器上报称重数据，查询商品单价，更新购物车状态",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

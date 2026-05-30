@@ -1,0 +1,9 @@
+{
+  "name": "completeOrder",
+  "version": "1.0.0",
+  "description": "支付完成后保存订单记录并清空购物车状态",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

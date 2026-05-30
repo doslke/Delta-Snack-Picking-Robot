@@ -1,0 +1,76 @@
+<!--index.wxml-->
+<view class="brand-logo-wrap">
+  <image class="brand-logo" src="{{brandLogo}}" mode="widthFix" />
+</view>
+
+<scroll-view class="scrollarea" scroll-y type="list">
+  <view class="container">
+
+    <!-- 未绑定购物车：显示扫码引导 -->
+    <view class="bind-card" wx:if="{{!isBound}}">
+      <image class="bind-icon" src="{{brandLogo}}" mode="widthFix" />
+      <text class="bind-title">请扫描购物车二维码</text>
+      <text class="bind-desc">扫描购物车上的专属二维码，即可查看称重明细并完成支付</text>
+      <button
+        class="scan-btn"
+        bindtap="onScanTap"
+        loading="{{isBinding}}"
+        disabled="{{isBinding}}"
+      >{{isBinding ? '验证中...' : '扫码绑定购物车'}}</button>
+    </view>
+
+    <!-- 已绑定：显示购物车状态栏 + 商品列表 -->
+    <block wx:else>
+
+      <!-- 购物车状态栏 -->
+      <view class="cart-bar">
+        <view class="cart-bar-left">
+          <text class="cart-bar-label">购物车</text>
+          <text class="cart-bar-id">{{cartId}}</text>
+        </view>
+        <button class="unbind-btn" bindtap="onUnbindTap">解绑</button>
+      </view>
+
+      <!-- 零食清单卡片 -->
+      <view class="card list-card">
+        <view class="card-title">商品明细</view>
+
+        <!-- 商品行 -->
+        <view class="table-body">
+          <block wx:for="{{snackList}}" wx:key="index">
+            <view class="table-row {{index % 2 === 0 ? 'row-even' : 'row-odd'}}">
+              <image class="item-img" src="{{item.image}}" mode="aspectFill" />
+              <view class="item-info">
+                <text class="item-name">{{item.name}}</text>
+                <view class="item-meta">
+                  <text class="meta-weight">{{item.weight}}g</text>
+                  <text class="meta-sep">·</text>
+                  <text class="meta-text">¥{{item.unitPrice}}</text>
+                </view>
+                <text class="item-price price-highlight">¥{{item.totalPrice}}</text>
+              </view>
+            </view>
+          </block>
+        </view>
+
+        <!-- 空状态 -->
+        <view class="empty-wrap" wx:if="{{snackList.length === 0}}">
+          <text class="empty-text">等待称重...</text>
+        </view>
+
+      </view>
+
+      <!-- 支付区域 -->
+      <view class="pay-section">
+        <text class="pay-tips">共 {{snackList.length}} 种商品，请确认信息无误后再支付</text>
+        <button
+          class="pay-btn"
+          bindtap="onPayTap"
+          disabled="{{isPaying || snackList.length === 0}}"
+        >{{isPaying ? '支付处理中...' : '立即支付 ¥' + totalAmount}}</button>
+      </view>
+
+    </block>
+
+  </view>
+</scroll-view>

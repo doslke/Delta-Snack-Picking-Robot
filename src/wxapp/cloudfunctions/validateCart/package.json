@@ -1,0 +1,9 @@
+{
+  "name": "validateCart",
+  "version": "1.0.0",
+  "description": "小程序扫码后验证购物车ID合法性",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
