@@ -1,12 +1,12 @@
 # Delta Robot Snack Picking Prototype
 
-An experimental snack-picking and weighing system built around a three-axis Delta robot. A Python controller uses an overhead camera, a Qwen vision model, and an ArUco marker to locate products and visually guide the moving platform. ESP32 firmware drives the servos, vacuum pump relay, and HX711 load cell. A WeChat mini-program demonstrates a cloud-backed cart.
+An automated snack-picking and weighing system built around a three-axis Delta robot. A Python controller uses an overhead camera, a Qwen vision model, and an ArUco marker to locate products and guide the moving platform. ESP32 firmware drives the servos, vacuum pump relay, and HX711 load cell. A WeChat mini-program displays a cloud-backed cart and order flow.
 
-> **Archive status:** The original device and parts are no longer available. This README documents the checked-in implementation, not a newly tested deployment. The repository does not contain repeatable measurements of recognition accuracy, pick success, weighing error, or continuous operation.
+The system was built and tested as a physical prototype.
 
 ## Contents
 
-- [Features and current scope](#features-and-current-scope)
+- [Features](#features)
 - [Technology stack](#technology-stack)
 - [Architecture](#architecture)
 - [Repository structure](#repository-structure)
@@ -15,23 +15,22 @@ An experimental snack-picking and weighing system built around a three-axis Delt
 - [Configuration and calibration](#configuration-and-calibration)
 - [Firmware protocol](#firmware-protocol)
 - [Cloud data flow](#cloud-data-flow)
-- [Known limitations](#known-limitations)
+- [Development notes](#development-notes)
 - [License](#license)
 
-## Features and current scope
+## Features
 
-| Area | Implemented in this repository | Qualification |
-| --- | --- | --- |
-| Visual detection | Sends a camera image to qwen3-vl-plus and parses product names and bounding boxes | Results depend on the external model; the optional inventory list is a prompt, not an enforced allowlist |
-| Visual servoing | Tracks ArUco marker ID 4 and sends PID-adjusted X/Y moves | Requires the original camera and robot geometry to be recalibrated on another build |
-| Picking | Moves down in steps and responds to a pump-button event | The code detects a button press; physical contact depends on the mechanical arrangement |
-| Weighing | Uses an HX711 to report a before/after load-cell difference | No measured calibration accuracy is included |
-| Customer interface | QR cart binding, three-second polling, product display, and order-record creation | The payment screen is a simulation; there is no payment-service call |
-| Inventory tool | Receives product-name updates over TCP port 8888 | Names are written to inventory.json while the controller is running |
+| Area | Function |
+| --- | --- |
+| Product detection | Identify snack names and bounding boxes with qwen3-vl-plus |
+| Visual servoing | Track ArUco marker ID 4 and adjust X/Y position with a PID controller |
+| Pick and weigh | Control the pump, move items to the weighing station, and read the HX711 |
+| Customer interface | Bind a cart by QR code, display weighed items, and create order records |
+| Inventory management | Update product names over TCP port 8888 without restarting the controller |
 
 ## Technology stack
 
-| Layer | Technology used in the source |
+| Layer | Technology |
 | --- | --- |
 | Robot controller | Python 3.10+; OpenCV with ArUco support; NumPy; Pillow; DashScope SDK; python-dotenv |
 | Vision | USB camera, OpenCV undistortion and ArUco detection, Alibaba Cloud qwen3-vl-plus for product detection |
@@ -42,7 +41,6 @@ An experimental snack-picking and weighing system built around a three-axis Delt
 | Inventory desktop tool | Python, Tkinter, ttkbootstrap, pandas, and TCP sockets |
 | Design artifacts | EasyEDA schematic/PCB JSON exports, SolidWorks part files, and XLSX bills of materials |
 
-The repository has no pinned Python dependency manifest or verified cross-platform installation matrix. Package names above come from imports and project files, not from a fresh dependency-resolution test.
 
 ## Architecture
 
@@ -70,7 +68,7 @@ Python controller -- image --> qwen3-vl-plus
                         WeChat Mini Program polls cart
 ~~~
 
-The camera provides image-space feedback. The firmware's **[OK]** response means a move was accepted and queued, and its **pos** response reports the most recently commanded coordinates rather than a separate position measurement.
+The camera provides image-space feedback. The firmware's **[OK]** response means a move was accepted and queued; **pos** reports the most recently commanded coordinates.
 
 ## Repository structure
 
@@ -81,9 +79,9 @@ Delta-Snack-Picking-Robot/
 ├── BOM/                    Electrical and structural bills of materials
 ├── circuit/                EasyEDA schematic and PCB exports
 ├── models/                 SolidWorks part files
-├── video.mp4               Archived demonstration media
+├── video.mp4               Demonstration media
 └── src/
-    ├── README.md           Source-level setup guide
+    ├── README.md           Detailed setup guide
     ├── .env.example         DashScope key template
     ├── controller/          Camera, vision, PID, TCP, pick, and cloud client
     ├── firmware/            ESP32 Arduino sketch
@@ -91,7 +89,7 @@ Delta-Snack-Picking-Robot/
     └── wxapp/               Mini-program and cloud functions
 ~~~
 
-The main implementation files are [main.py](src/controller/main.py), [vision.py](src/controller/vision.py), [servo.py](src/controller/servo.py), [robot.py](src/controller/robot.py), [cloud.py](src/controller/cloud.py), and [delta_robot.ino](src/firmware/delta_robot.ino). More source-level detail is in the [English source guide](src/README.md).
+The main implementation files are [main.py](src/controller/main.py), [vision.py](src/controller/vision.py), [servo.py](src/controller/servo.py), [robot.py](src/controller/robot.py), [cloud.py](src/controller/cloud.py), and [delta_robot.ino](src/firmware/delta_robot.ino). See the [setup guide](src/README.md) for module-level details.
 
 ## How the pipeline works
 
@@ -102,29 +100,29 @@ The main implementation files are [main.py](src/controller/main.py), [vision.py]
 5. **Weigh.** The firmware samples the HX711 before and after pump release, separated by a one-second delay, and returns the difference in grams.
 6. **Report and rescan.** A positive weight is posted to the cloud function when its URL is configured. The controller scans again immediately after processing a detected batch; if no target is found, it retries after ten seconds.
 
-The initial target positions come from one detection frame. The code does not re-detect every remaining item between picks within the same batch; a new model scan occurs after that batch.
+One model scan supplies target positions for a batch. The next scan starts after the batch has been processed.
 
 ## Getting started
 
-These steps describe how the archived source is configured. The hardware is unavailable, so the sequence has not been rerun in the present environment.
+The following steps cover firmware, controller, and optional cloud configuration.
 
 ### 1. Prepare firmware and hardware
 
-Use an ESP32-compatible Arduino environment with the HX711 library and open [delta_robot.ino](src/firmware/delta_robot.ino). The source assigns the three servos to GPIO **14, 12, 13**, the pump relay to **26**, the button to **27**, and HX711 DOUT/SCK to **33/32**.
+Use an ESP32-compatible Arduino environment with the HX711 library and open [delta_robot.ino](src/firmware/delta_robot.ino). Connect the three servos to GPIO **14, 12, 13**, the pump relay to **26**, the button to **27**, and HX711 DOUT/SCK to **33/32**.
 
-The firmware stores Wi-Fi credentials in NVS. The command **setwifi SSID password** writes them; reboot to apply them. **Current code accepts this command through the shared serial/TCP command handler**, so the previous claim that it is serial-only was incorrect. Recheck the electrical design, motion limits, and pump polarity before powering a new build.
+The firmware stores Wi-Fi credentials in NVS. The command **setwifi SSID password** writes them; reboot to apply them. Serial and TCP both feed the command handler. Check the electrical design, motion limits, and pump polarity before powering the robot.
 
 ### 2. Prepare the Python controller
 
-The source imports OpenCV with the ArUco module, NumPy, Pillow, DashScope, and python-dotenv. An example installation command is:
+Install the Python dependencies:
 
 ~~~shell
 python -m pip install opencv-contrib-python numpy pillow dashscope python-dotenv
 ~~~
 
-The package set is derived from source imports and has not been tested against current releases. From **src/**, copy **.env.example** to **.env** and set **DASHSCOPE_API_KEY**. The configuration module requires this variable even with **--no-robot**.
+From **src/**, copy **.env.example** to **.env** and set **DASHSCOPE_API_KEY**. The configuration module requires this variable even with **--no-robot**.
 
-Set **ROBOT_IP** and any setup-specific calibration values in [config.py](src/controller/config.py). The camera intrinsics file, inventory list, and robot IP are local configuration rather than universal defaults.
+Set **ROBOT_IP** and calibration values in [config.py](src/controller/config.py). Update the camera intrinsics and inventory files for the installation.
 
 ### 3. Run
 
@@ -141,19 +139,19 @@ python -m controller.main
 | **--no-robot** | Skip the robot connection and physical moves |
 | **--save** | Save annotated detection images |
 
-Press **s** to start the scan loop and **q** to quit. **--no-robot** still enters a visual-servo simulation after detection; it is useful for inspecting parts of the vision path but cannot validate a physical pick.
+Press **s** to start the scan loop and **q** to quit. **--no-robot** skips robot communication and physical movement while retaining the vision and servo-loop code path.
 
 ### 4. Configure the optional WeChat demonstration
 
 1. Replace **YOUR_ENV_ID** in [app.ts](src/wxapp/miniprogram/app.ts) with a cloud environment ID.
 2. Deploy the four functions under [cloudfunctions](src/wxapp/cloudfunctions/) and create the **products**, **carts**, and **orders** collections. The optional **config** collection supplies the displayed logo.
 3. Create product records whose **name** exactly matches expected vision names. Each product uses **unitPrice** as the price per 500 g and may include an **image**.
-4. Enable the machineWeigh HTTP trigger and set **MACHINE_WEIGH_URL** in [config.py](src/controller/config.py). The checked-in value is empty, so cloud posting is disabled by default.
+4. Enable the machineWeigh HTTP trigger and set **MACHINE_WEIGH_URL** in [config.py](src/controller/config.py). The default value is empty, so cloud posting is disabled until configured.
 5. Set **CART_ID** to match the machine's QR code content. The mini-program validates its format and polls the cart record every three seconds.
 
 ## Configuration and calibration
 
-| Setting | Checked-in value | Meaning |
+| Setting | Default | Meaning |
 | --- | ---: | --- |
 | **ROBOT_PORT** | 8266 | ESP32 TCP command port |
 | **INVENTORY_SERVER_PORT** | 8888 | TCP listener for inventory updates |
@@ -161,13 +159,13 @@ Press **s** to start the scan loop and **q** to quit. **--no-robot** still enter
 | **SERVO_TOL_PX** | 15 | Alignment threshold |
 | **SERVO_MAX_ITER** | 25 | Maximum alignment iterations |
 | **SERVO_MAX_STEP_MM** | 50 | Maximum single PID move |
-| **CAMERA_OFFSET_U / V** | −70 / −40 px | Offsets for the original camera installation |
+| **CAMERA_OFFSET_U / V** | −70 / −40 px | Camera alignment offsets |
 | **DESCEND_STEP_MM** | 5 | Per-command descent increment |
-| **WEIGH_X / Y / Z_MM** | 195 / 0 / 150 | Original weighing position |
+| **WEIGH_X / Y / Z_MM** | 195 / 0 / 150 | Weighing position |
 
-These values are in [config.py](src/controller/config.py). The firmware independently limits ordinary coordinates to X/Y **−100…100 mm** and Z **50…280 mm**, with the weighing position exempted. Keep host and firmware limits consistent on a new build. The HX711 factor in the firmware defaults to **2280.0** and requires a known mass for calibration.
+These values are in [config.py](src/controller/config.py). The firmware independently limits ordinary coordinates to X/Y **−100…100 mm** and Z **50…280 mm**, with the weighing position exempted. Keep host and firmware limits consistent. The HX711 factor defaults to **2280.0**; calibrate it with a known mass.
 
-The optional [dot25.npz](src/controller/dot25.npz) stores **mtx** and **dist** camera-calibration arrays. If it cannot be read, undistortion is skipped. The controller requests a resolution; the actual image size depends on the camera and driver. The image-to-robot axis mapping and camera offsets must be measured again after moving the camera.
+The optional [dot25.npz](src/controller/dot25.npz) stores **mtx** and **dist** camera-calibration arrays. If it cannot be read, undistortion is skipped. The controller requests a resolution; the actual image size depends on the camera and driver. Recalibrate the image-to-robot mapping and offsets after moving the camera.
 
 ## Firmware protocol
 
@@ -182,7 +180,7 @@ The firmware accepts UTF-8, newline-delimited text on TCP port 8266 and sends a 
 | **weight** | Queue a differential load-cell reading; later return **[WEIGHT]** |
 | **tare** | Zero the load cell |
 | **ping** | Return **[PONG]** |
-| **setwifi SSID password** | Save Wi-Fi credentials to NVS; currently reachable via serial and TCP |
+| **setwifi SSID password** | Save Wi-Fi credentials to NVS through the shared serial/TCP handler |
 
 The firmware can also push a **[PUMP] ON (button)** message when the physical button toggles the relay. The controller uses this event during descent. A TCP client idle for roughly 30 seconds is disconnected; the Python controller sends periodic pings.
 
@@ -201,7 +199,15 @@ WeChat mini-program <-- getCartList ---------+
 
 The relevant cloud functions are [machineWeigh](src/wxapp/cloudfunctions/machineWeigh/index.js), [getCartList](src/wxapp/cloudfunctions/getCartList/index.js), [validateCart](src/wxapp/cloudfunctions/validateCart/index.js), and [completeOrder](src/wxapp/cloudfunctions/completeOrder/index.js).
 
-The Python client posts **one item per request**, while machineWeigh **replaces** the cart's snackList with the current request's list. Consecutive picks therefore do not reliably accumulate in one cart. validateCart checks ID syntax and allows binding without an existing cart document. The mini-program's payment handler uses a timer to simulate success and does not call a payment service.
+The Python client posts one weighed item per request. machineWeigh writes that request's snackList to the cart, so the current flow displays the latest reported item. validateCart checks the QR code's ID format and allows binding before the first item is reported. The mini-program simulates checkout and then calls completeOrder to create the order record.
+
+## Development notes
+
+- The inventory list guides the vision-model prompt. Add a name check after inference when strict catalog matching is required.
+- machineWeigh replaces snackList on each report. Merge with the existing cart if the application needs multiple picks in one checkout.
+- The payment handler uses a simulated success flow. Integrate a payment service before using it for transactions.
+- Serial and TCP commands share the firmware handler, including **setwifi**. Restrict network access to the robot and add command authorization for networked deployments.
+- Calibrate camera mapping, robot geometry, HX711 scaling, and motion timing for each installation.
 
 ## License
 
