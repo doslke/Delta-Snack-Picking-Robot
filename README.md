@@ -57,12 +57,4 @@ These are settings required by the source, not installation steps verified on a 
 4. Enable the machineWeigh HTTP trigger and set **MACHINE_WEIGH_URL** in [controller/config.py](controller/config.py). Its repository default is empty, so posting is disabled by default.
 5. The mini-program scans a QR code containing a cart ID and polls the cloud record. validateCart mainly checks ID syntax; it can allow binding even before a matching carts record exists.
 
-## Known limitations
-
-- [machineWeigh](wxapp/cloudfunctions/machineWeigh/index.js) **replaces** the stored snackList with the current request's list. Because Python sends one item per request, consecutive picks do not reliably accumulate in one cart.
-- The [mini-program payment handler](wxapp/miniprogram/pages/index/index.ts) simulates success and calls completeOrder; it does not invoke a payment service.
-- The inventory list only guides the model prompt. There is no post-inference allowlist check.
-- The cloud weighing endpoint has no machine authentication implemented in this source. The firmware also allows a TCP command to reach the setwifi handler.
-- This repository has no reproducible pick-success, weighing-error, or long-running test records. The original equipment is no longer available for retesting.
-
 This repository records the prototype's implementation state. A new build would require review of motion boundaries and power-loss behavior, followed by camera, suction, load-cell, and cloud-flow calibration.
